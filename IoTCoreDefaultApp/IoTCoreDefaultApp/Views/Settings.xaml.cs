@@ -66,6 +66,7 @@ namespace IoTCoreDefaultApp
             this.Loaded += (sender, e) =>
             {
                 SetupLanguages();
+                screensaverToggleSwitch.IsOn = Screensaver.IsScreensaverEnabled;
             };
         }
 
@@ -75,6 +76,9 @@ namespace IoTCoreDefaultApp
 
             LanguageListBox.ItemsSource = languageManager.LanguageDisplayNames;
             LanguageListBox.SelectedItem = LanguageManager.GetCurrentLanguageDisplayName();
+
+            InputLanguageListBox.ItemsSource = languageManager.InputLanguageDisplayNames;
+            InputLanguageListBox.SelectedItem = LanguageManager.GetCurrentInputLanguageDisplayName();
         }
 
         private void SetupNetwork()
@@ -200,6 +204,16 @@ namespace IoTCoreDefaultApp
             languageManager.UpdateLanguage(listBox.SelectedItem as string);
         }
 
+        private void InputLanguageListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var listBox = sender as ListBox;
+            if (listBox.SelectedItem == null)
+            {
+                return;
+            }
+
+            languageManager.UpdateInputLanguage(listBox.SelectedItem as string);
+        }
 
         private void SetupEthernet()
         {
@@ -334,10 +348,12 @@ namespace IoTCoreDefaultApp
                 item.ContentTemplate = template;
             }
 
+
+
             return item;
         }
 
-        private void ConnectAutomaticallyCheckBox_Checked(object sender, RoutedEventArgs e)
+        private void ConnectAutomaticallyCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             var checkbox = sender as CheckBox;
 
@@ -397,7 +413,9 @@ namespace IoTCoreDefaultApp
 
         private void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
+            RefreshButton.IsEnabled = false;
             SetupWifi();
+            RefreshButton.IsEnabled = true;
         }
 
         /// <summary>
@@ -949,6 +967,21 @@ namespace IoTCoreDefaultApp
             else
             {
                 StopWatchingAndDisplayConfirmationMessage();
+            }
+        }
+
+        private void Screensaver_Toggled(object sender, RoutedEventArgs e)
+        {
+            var screensaverToggleSwitch = sender as ToggleSwitch;
+            Screensaver.IsScreensaverEnabled = screensaverToggleSwitch.IsOn;
+        }
+
+        private void WifiPasswordBox_Loaded(object sender, RoutedEventArgs e)
+        {
+            var passwordBox = sender as PasswordBox;
+            if (passwordBox != null)
+            {
+                passwordBox.Focus(FocusState.Programmatic);
             }
         }
     }

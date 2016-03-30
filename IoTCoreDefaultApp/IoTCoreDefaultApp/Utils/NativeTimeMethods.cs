@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace IoTCoreDefaultApp.Utils
 {
-    internal static class NativeTime
+    internal static class NativeTimeMethods
     {
         [DllImport("api-ms-win-core-sysinfo-l1-2-1.dll")]
         internal static extern void GetLocalTime(out SYSTEMTIME lpLocalTime);
