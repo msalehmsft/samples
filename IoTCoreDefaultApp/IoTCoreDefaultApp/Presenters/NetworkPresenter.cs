@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -89,32 +90,32 @@ namespace IoTCoreDefaultApp
 
         public static string GetCurrentIpv4Address()
         {
-            var icp = NetworkInformation.GetInternetConnectionProfile();
-            if (icp != null && icp.NetworkAdapter != null && icp.NetworkAdapter.NetworkAdapterId != null)
+            try
             {
-                var name = icp.ProfileName;
-
-                try
+                var icp = NetworkInformation.GetInternetConnectionProfile();
+                if (icp != null && icp.NetworkAdapter != null && icp.NetworkAdapter.NetworkAdapterId != null)
                 {
-                    var hostnames = NetworkInformation.GetHostNames();
+                    var name = icp.ProfileName;
 
-                    foreach (var hn in hostnames)
-                    {
-                        if (hn.IPInformation != null &&
-                            hn.IPInformation.NetworkAdapter != null &&
-                            hn.IPInformation.NetworkAdapter.NetworkAdapterId != null &&
-                            hn.IPInformation.NetworkAdapter.NetworkAdapterId == icp.NetworkAdapter.NetworkAdapterId &&
-                            hn.Type == HostNameType.Ipv4)
+                        var hostnames = NetworkInformation.GetHostNames();
+
+                        foreach (var hn in hostnames)
                         {
-                            return hn.CanonicalName;
+                            if (hn.IPInformation != null &&
+                                hn.IPInformation.NetworkAdapter != null &&
+                                hn.IPInformation.NetworkAdapter.NetworkAdapterId != null &&
+                                hn.IPInformation.NetworkAdapter.NetworkAdapterId == icp.NetworkAdapter.NetworkAdapterId &&
+                                hn.Type == HostNameType.Ipv4)
+                            {
+                                return hn.CanonicalName;
+                            }
                         }
                     }
                 }
-                catch (Exception)
-                {
-                    // do nothing
-                    // in some (strange) cases NetworkInformation.GetHostNames() fails... maybe a bug in the API...
-                }
+            catch (Exception)
+            {
+                // do nothing
+                // in some (strange) cases NetworkInformation.GetHostNames() fails... maybe a bug in the API...
             }
 
             var resourceLoader = ResourceLoader.GetForCurrentView();
@@ -191,7 +192,15 @@ namespace IoTCoreDefaultApp
                     return false;
                 }
 
-                await adapter.ScanAsync();
+                try
+                {
+                    await adapter.ScanAsync();
+                }
+                catch (Exception)
+                {
+                    // ScanAsync() can throw an exception if the scan timeouts.
+                    continue;
+                }
 
                 if (adapter.NetworkReport == null)
                 {
@@ -260,7 +269,23 @@ namespace IoTCoreDefaultApp
                 return false;
             }
 
-            var result = await networkNameToInfo[network].ConnectAsync(network, autoConnect ? WiFiReconnectionKind.Automatic : WiFiReconnectionKind.Manual);
+            // We need to use TryGetValue here.  If we are rescanning for Wifi networks
+            // (ie. 'await'ing on ScanAsync() in UpdateInfo(), 'networkNameToInfo' may not
+            // have an entry described by the key'network'.
+            WiFiAdapter wifiAdapter;
+            if (!networkNameToInfo.TryGetValue(network, out wifiAdapter))
+            {
+                return false;
+            }
+            
+            var result = await wifiAdapter.ConnectAsync(network, autoConnect ? WiFiReconnectionKind.Automatic : WiFiReconnectionKind.Manual);
+
+            //Call redirect only for Open Wifi
+            if (IsNetworkOpen(network))
+            {
+                //Navigate to http://www.msftconnecttest.com/redirect 
+                NavigationUtils.NavigateToScreen(typeof(WebBrowserPage), Common.GetLocalizedText("MicrosoftWifiConnect"));
+            }
 
             return (result.ConnectionStatus == WiFiConnectionStatus.Success);
         }
@@ -282,7 +307,16 @@ namespace IoTCoreDefaultApp
                 return false;
             }
 
-            var result = await networkNameToInfo[network].ConnectAsync(
+            // We need to use TryGetValue here.  If we are rescanning for Wifi networks
+            // (ie. 'await'ing on ScanAsync() in UpdateInfo(), 'networkNameToInfo' may not
+            // have an entry described by the key'network'.
+            WiFiAdapter wifiAdapter;
+            if (!networkNameToInfo.TryGetValue(network, out wifiAdapter))
+            {
+                return false;
+            }
+
+            var result = await wifiAdapter.ConnectAsync(
                 network,
                 autoConnect ? WiFiReconnectionKind.Automatic : WiFiReconnectionKind.Manual,
                 password);
